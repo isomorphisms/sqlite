@@ -1,0 +1,23 @@
+package sqlite-first-pass
+
+version = 0.1.0
+sourcedir = "src"
+
+modules = SQLite.Value,
+          SQLite.Varint,
+          SQLite.Page,
+          SQLite.File,
+          SQLite.Record,
+          SQLite.BTreeRead,
+          SQLite.Schema,
+          SQLite.LeafBTree,
+          SQLite.SQL,
+          SQLite.Database,
+          SQLite.VDBE,
+          SQLite.Compiler,
+          SQLite.Engine,
+          SQLite.ReadOnly,
+          Main
+
+main = Main
+executable = "sqlite-idris"

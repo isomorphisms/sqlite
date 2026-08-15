@@ -1,0 +1,23 @@
+package sqlite-first-pass-tests
+
+version = 0.1.0
+sourcedir = "src"
+
+modules = SQLite.Value,
+          SQLite.Varint,
+          SQLite.Page,
+          SQLite.File,
+          SQLite.Record,
+          SQLite.BTreeRead,
+          SQLite.Schema,
+          SQLite.LeafBTree,
+          SQLite.SQL,
+          SQLite.Database,
+          SQLite.VDBE,
+          SQLite.Compiler,
+          SQLite.Engine,
+          SQLite.ReadOnly,
+          TestMain
+
+main = TestMain
+executable = "sqlite-first-pass-tests"
