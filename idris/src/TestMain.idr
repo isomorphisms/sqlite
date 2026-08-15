@@ -18,30 +18,30 @@ import System
 
 %default covering
 
-assertEqual : (Eq item, Show item) => String -> item -> item -> Either String ()
+assertEqual : (Eq item, Show item) ⇒ String → item → item → Either String ()
 assertEqual name expected actual =
   if expected == actual
     then Right ()
     else Left (name ++ "\n  expected: " ++ show expected ++ "\n  actual:   " ++ show actual)
 
-assertTrue : String -> Bool -> Either String ()
+assertTrue : String → Bool → Either String ()
 assertTrue name = assertEqual name True
 
-assertLeft : String -> String -> Either String answer -> Either String ()
+assertLeft : String → String → Either String answer → Either String ()
 assertLeft name expected (Left actual) = assertEqual name expected actual
 assertLeft name _ (Right _) = Left (name ++ "\n  expected an error, received success")
 
-assertFails : String -> Either String answer -> Either String ()
+assertFails : String → Either String answer → Either String ()
 assertFails _ (Left _) = Right ()
 assertFails name (Right _) = Left (name ++ "\n  expected an error, received success")
 
-replaceAt : Nat -> element -> List element -> List element
+replaceAt : Nat → element → List element → List element
 replaceAt Z replacement (_ :: rest) = replacement :: rest
 replaceAt (S index) replacement (value :: rest) =
   value :: replaceAt index replacement rest
 replaceAt _ _ [] = []
 
-varintCase : Integer -> List Integer -> Either String ()
+varintCase : Integer → List Integer → Either String ()
 varintCase value bytes = do
   assertEqual ("encode varint " ++ show value) (Right bytes) (encode value)
   assertEqual ("decode varint " ++ show value)
@@ -101,8 +101,8 @@ sqlTests =
       (tokenize "INSERT INTO t VALUES ('don''t', -2);")
   , assertTrue "parser accepts mixed-case keywords"
       (case tokenize "select name FROM people WHERE age = 85;" of
-        Left _ => False
-        Right tokens => parse tokens == Right
+        Left _ ⇒ False
+        Right tokens ⇒ parse tokens == Right
           (SelectRows (NamedColumns ["name"]) "people"
             (Just (ColumnEquals "age" (SqlInteger 85)))))
   ]
@@ -137,27 +137,27 @@ engineTest =
     , "INSERT INTO people VALUES ('Grace', 85);"
     , "SELECT name FROM people WHERE age = 85;"
     ] (emptyDatabase 1) of
-      Left error => Left ("engine scenario failed: " ++ error)
-      Right (_, results) => assertEqual "SQL -> VDBE -> leaf store result"
+      Left error ⇒ Left ("engine scenario failed: " ++ error)
+      Right (_, results) ⇒ assertEqual "SQL -> VDBE -> leaf store result"
         [MkResultSet ["name"] [[SqlText "Grace"]]] results
 
 allTests : List (Either String ())
 allTests = varintTests ++ pageTests ++ leafStoreTests ++ sqlTests ++ recordTests ++ [engineTest]
 
-runTests : Nat -> List (Either String ()) -> Either String Nat
+runTests : Nat → List (Either String ()) → Either String Nat
 runTests passed [] = Right passed
 runTests passed (Left error :: _) = Left error
 runTests passed (Right () :: rest) = runTests (S passed) rest
 
-basicFixtureTests : SQLiteFile -> List (Either String ())
+basicFixtureTests : SQLiteFile → List (Either String ())
 basicFixtureTests database =
   [ assertEqual "fixture page size" 512 database.header.pageSize
   , assertTrue "WAL header is rejected without a WAL snapshot"
       (case parseSQLiteFile
         (take 18 database.contents ++ [2, 2] ++ drop 20 database.contents) of
-          Left message => message ==
+          Left message ⇒ message ==
             "WAL-mode database headers are not safe to read without applying the WAL"
-          Right _ => False)
+          Right _ ⇒ False)
   , assertEqual "fixture schema"
       (Right [MkSchemaEntry
         (Utf8SchemaText "table")
@@ -184,48 +184,48 @@ basicFixtureTests database =
       (query "SELECT name FROM people WHERE score = NULL;" database)
   , case parseSQLiteFile
       (replaceAt (database.header.pageSize + 7) 61 database.contents) of
-      Left error => Left error
-      Right corrupted => assertLeft "fragmented-byte corruption"
+      Left error ⇒ Left error
+      Right corrupted ⇒ assertLeft "fragmented-byte corruption"
         "B-tree page reports more than 60 fragmented free bytes"
         (query "SELECT name FROM people;" corrupted)
   ]
 
-multipageFixtureTests : SQLiteFile -> List (Either String ())
+multipageFixtureTests : SQLiteFile → List (Either String ())
 multipageFixtureTests database =
   [ case query "SELECT n, label FROM nums;" database of
-      Left error => Left error
-      Right result => do
+      Left error ⇒ Left error
+      Right result ⇒ do
         assertEqual "multi-page table row count" 200 (length result.rows)
         assertEqual "multi-page first row"
           (Just [SqlInteger 1, SqlText "row-001"]) (at 0 result.rows)
         assertEqual "multi-page last row"
           (Just [SqlInteger 200, SqlText "row-200"]) (at 199 result.rows)
   , case parseSQLiteFile (replaceAt 1023 34 database.contents) of
-      Left error => Left error
-      Right corrupted => assertFails "interior separator must bound adjacent children"
+      Left error ⇒ Left error
+      Right corrupted ⇒ assertFails "interior separator must bound adjacent children"
         (query "SELECT n FROM nums;" corrupted)
   ]
 
-deletedFixtureTests : SQLiteFile -> List (Either String ())
+deletedFixtureTests : SQLiteFile → List (Either String ())
 deletedFixtureTests database =
   [ case query "SELECT n FROM nums;" database of
-      Left error => Left error
-      Right result => assertEqual
+      Left error ⇒ Left error
+      Right result ⇒ assertEqual
         "a valid stale interior separator survives deleted boundary rows"
         189 (length result.rows)
   ]
 
-overflowFixtureTests : SQLiteFile -> List (Either String ())
+overflowFixtureTests : SQLiteFile → List (Either String ())
 overflowFixtureTests database =
   [ case query "SELECT body FROM docs;" database of
-      Left error => Left error
-      Right (MkResultSet _ [[SqlText body]]) => do
+      Left error ⇒ Left error
+      Right (MkResultSet _ [[SqlText body]]) ⇒ do
         assertEqual "overflow record character count" 2002 (length (unpack body))
         assertEqual "overflow record UTF-8 tail" ['λ', ' '] (take 2 (reverse (unpack body)))
-      Right other => Left ("unexpected overflow query result " ++ show other)
+      Right other ⇒ Left ("unexpected overflow query result " ++ show other)
   ]
 
-alteredFixtureTests : SQLiteFile -> List (Either String ())
+alteredFixtureTests : SQLiteFile → List (Either String ())
 alteredFixtureTests database =
   [ assertEqual "ALTER TABLE synthesizes a trailing NULL for old records"
       (Right (MkResultSet ["a", "c"]
@@ -233,46 +233,46 @@ alteredFixtureTests database =
       (query "SELECT a, c FROM t;" database)
   ]
 
-invalidTextFixtureTests : SQLiteFile -> List (Either String ())
+invalidTextFixtureTests : SQLiteFile → List (Either String ())
 invalidTextFixtureTests database =
   [ assertEqual "valid SQLite file may contain invalid UTF-8 text bytes"
       (Right (MkResultSet ["value"] [[SqlTextBytes [128]]]))
       (query "SELECT value FROM t;" database)
   ]
 
-invalidSchemaFixtureTests : SQLiteFile -> List (Either String ())
+invalidSchemaFixtureTests : SQLiteFile → List (Either String ())
 invalidSchemaFixtureTests database =
   [ assertEqual "an unrelated invalid schema identifier does not poison a table"
       (Right (MkResultSet ["a"] [[SqlInteger 9]]))
       (query "SELECT a FROM t;" database)
   , case readSchema database of
-      Left error => Left error
-      Right entries =>
+      Left error ⇒ Left error
+      Right entries ⇒
         case at 1 entries of
-          Just entry => assertEqual "invalid schema name bytes are retained"
+          Just entry ⇒ assertEqual "invalid schema name bytes are retained"
             (RawSchemaText [98, 97, 100, 128, 110, 97, 109, 101])
             entry.name
-          Nothing => Left "invalid-schema fixture has no second schema row"
+          Nothing ⇒ Left "invalid-schema fixture has no second schema row"
   ]
 
-controlTextFixtureTests : SQLiteFile -> List (Either String ())
+controlTextFixtureTests : SQLiteFile → List (Either String ())
 controlTextFixtureTests database =
   [ case query "SELECT s FROM t;" database of
-      Left error => Left error
-      Right result => do
+      Left error ⇒ Left error
+      Right result ⇒ do
         assertEqual "embedded NUL remains in the decoded value"
           (MkResultSet ["s"] [[SqlText "A\0B\n'"]]) result
         assertTrue "result rendering escapes embedded NUL"
           (not (elem '\0' (unpack (show result))))
   ]
 
-emptyDatabaseFixtureTests : SQLiteFile -> List (Either String ())
+emptyDatabaseFixtureTests : SQLiteFile → List (Either String ())
 emptyDatabaseFixtureTests database =
   [ assertEqual "initialized empty format-3 database has no schema rows"
       (Right []) (readSchema database)
   ]
 
-emptyTableFixtureTests : SQLiteFile -> List (Either String ())
+emptyTableFixtureTests : SQLiteFile → List (Either String ())
 emptyTableFixtureTests database =
   [ assertEqual "empty table query"
       (Right (MkResultSet ["a"] []))
@@ -285,17 +285,17 @@ emptyTableFixtureTests database =
       (query "SELECT a FROM t WHERE bogus = 1;" database)
   ]
 
-runFixture : Nat -> String -> (SQLiteFile -> List (Either String ())) -> IO (Either String Nat)
+runFixture : Nat → String → (SQLiteFile → List (Either String ())) → IO (Either String Nat)
 runFixture passed path tests = do
   loaded <- loadSQLiteFile path
   pure $ case loaded of
-    Left error => Left error
-    Right database => runTests passed (tests database)
+    Left error ⇒ Left error
+    Right database ⇒ runTests passed (tests database)
 
 record FixtureCase where
   constructor MkFixtureCase
   path : String
-  checks : SQLiteFile -> List (Either String ())
+  checks : SQLiteFile → List (Either String ())
 
 fixtureCases : List FixtureCase
 fixtureCases =
@@ -311,20 +311,20 @@ fixtureCases =
   , MkFixtureCase "fixtures/empty-table.db" emptyTableFixtureTests
   ]
 
-fixtureTests : Nat -> List FixtureCase -> IO (Either String Nat)
+fixtureTests : Nat → List FixtureCase → IO (Either String Nat)
 fixtureTests passed [] = pure (Right passed)
 fixtureTests passed (fixture :: rest) = do
   here <- runFixture passed fixture.path fixture.checks
   case here of
-    Left error => pure (Left error)
-    Right later => fixtureTests later rest
+    Left error ⇒ pure (Left error)
+    Right later ⇒ fixtureTests later rest
 
 main : IO ()
 main =
   case runTests 0 allTests of
-    Left error => die ("FAIL\n" ++ error)
-    Right pureCount => do
+    Left error ⇒ die ("FAIL\n" ++ error)
+    Right pureCount ⇒ do
       fixtures <- fixtureTests pureCount fixtureCases
       case fixtures of
-        Left error => die ("FAIL\n" ++ error)
-        Right count => putStrLn ("PASS: " ++ show count ++ " ordinary-Idris tests")
+        Left error ⇒ die ("FAIL\n" ++ error)
+        Right count ⇒ putStrLn ("PASS: " ++ show count ++ " ordinary-Idris tests")

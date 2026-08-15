@@ -5,12 +5,12 @@ import SQLite.VDBE
 
 %default total
 
-predicateCode : Maybe Predicate -> List Instruction
+predicateCode : Maybe Predicate → List Instruction
 predicateCode Nothing = []
 predicateCode (Just (ColumnEquals name value)) = [FilterEqualsOp name value]
 
 public export
-compile : Statement -> List Instruction
+compile : Statement → List Instruction
 compile (CreateTable name columns) =
   [CreateTableOp name columns, HaltOp]
 compile (InsertValues name values) =

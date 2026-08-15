@@ -57,7 +57,7 @@ Eq SqlValue where
   SqlBlob left == SqlBlob right = left == right
   _ == _ = False
 
-escapeTextCharacter : Char -> String
+escapeTextCharacter : Char → String
 escapeTextCharacter '\'' = "''"
 escapeTextCharacter '\\' = "\\\\"
 escapeTextCharacter '\0' = "\\0"
@@ -69,7 +69,7 @@ escapeTextCharacter character =
     then "\\codepoint{" ++ show (ord character) ++ "}"
     else pack [character]
 
-escapeText : List Char -> String
+escapeText : List Char → String
 escapeText [] = ""
 escapeText (character :: rest) =
   escapeTextCharacter character ++ escapeText rest
@@ -87,7 +87,7 @@ Show SqlValue where
 ||| including to itself.  Numeric affinity and collation coercions are not yet
 ||| modeled; all other values use constructor-preserving equality.
 public export
-sqlEquals : SqlValue -> SqlValue -> Bool
+sqlEquals : SqlValue → SqlValue → Bool
 sqlEquals SqlNull _ = False
 sqlEquals _ SqlNull = False
 sqlEquals left right = left == right
@@ -107,16 +107,16 @@ Show Row where
   show row = show row.rowId ++ ": " ++ show row.values
 
 public export
-at : Nat -> List element -> Maybe element
+at : Nat → List element → Maybe element
 at Z (value :: _) = Just value
 at (S index) (_ :: rest) = at index rest
 at _ [] = Nothing
 
 public export
-columnPosition : String -> List Column -> Maybe Nat
+columnPosition : String → List Column → Maybe Nat
 columnPosition wanted = findFrom Z
   where
-    findFrom : Nat -> List Column -> Maybe Nat
+    findFrom : Nat → List Column → Maybe Nat
     findFrom _ [] = Nothing
     findFrom index (column :: rest) =
       if column.name == wanted
@@ -124,5 +124,5 @@ columnPosition wanted = findFrom Z
         else findFrom (S index) rest
 
 public export
-columnNames : List Column -> List String
+columnNames : List Column → List String
 columnNames = map name

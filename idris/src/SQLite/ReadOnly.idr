@@ -11,7 +11,7 @@ import SQLite.VDBE
 
 %default covering
 
-decodeRows : Nat -> List RawTableRecord -> Either String (List Row)
+decodeRows : Nat → List RawTableRecord → Either String (List Row)
 decodeRows _ [] = Right []
 decodeRows width (raw :: rest) = do
   values <- decodeRecord raw.payload
@@ -24,82 +24,82 @@ decodeRows width (raw :: rest) = do
   let padded = values ++ replicate (minus width (length values)) SqlNull
   pure (MkRow raw.rowId padded :: later)
 
-rowIdName : String -> Bool
+rowIdName : String → Bool
 rowIdName name =
   sameName name "rowid" || sameName name "_rowid_" || sameName name "oid"
 
-columnIndex : String -> List Column -> Maybe Nat
+columnIndex : String → List Column → Maybe Nat
 columnIndex wanted = findFrom 0
   where
-    findFrom : Nat -> List Column -> Maybe Nat
+    findFrom : Nat → List Column → Maybe Nat
     findFrom _ [] = Nothing
     findFrom index (column :: rest) =
       if sameName wanted column.name
         then Just index
         else findFrom (S index) rest
 
-validateName : List Column -> String -> Either String ()
+validateName : List Column → String → Either String ()
 validateName columns name =
   case columnIndex name columns of
-    Just _ => Right ()
-    Nothing =>
+    Just _ ⇒ Right ()
+    Nothing ⇒
       if rowIdName name
         then Right ()
         else Left ("no such column: " ++ name)
 
-validateNames : List Column -> List String -> Either String ()
+validateNames : List Column → List String → Either String ()
 validateNames _ [] = Right ()
 validateNames columns (name :: rest) = do
   validateName columns name
   validateNames columns rest
 
-validateProjection : List Column -> Projection -> Either String ()
+validateProjection : List Column → Projection → Either String ()
 validateProjection _ AllColumns = Right ()
 validateProjection columns (NamedColumns names) = validateNames columns names
 
-validatePredicate : List Column -> Maybe Predicate -> Either String ()
+validatePredicate : List Column → Maybe Predicate → Either String ()
 validatePredicate _ Nothing = Right ()
 validatePredicate columns (Just (ColumnEquals name _)) = validateName columns name
 
-rowValue : List Column -> String -> Row -> Either String SqlValue
+rowValue : List Column → String → Row → Either String SqlValue
 rowValue columns name row =
   case columnIndex name columns of
-    Just index =>
+    Just index ⇒
       case at index row.values of
-        Nothing => Left ("rowid " ++ show row.rowId ++ " is shorter than its schema")
-        Just value => Right value
-    Nothing =>
+        Nothing ⇒ Left ("rowid " ++ show row.rowId ++ " is shorter than its schema")
+        Just value ⇒ Right value
+    Nothing ⇒
       if rowIdName name
         then Right (SqlInteger row.rowId)
         else Left ("no such column: " ++ name)
 
-filterRows : List Column -> Maybe Predicate -> List Row -> Either String (List Row)
+filterRows : List Column → Maybe Predicate → List Row → Either String (List Row)
 filterRows _ Nothing rows = Right rows
 filterRows columns (Just (ColumnEquals name wanted)) rows = keep rows
   where
-    keep : List Row -> Either String (List Row)
+    keep : List Row → Either String (List Row)
     keep [] = Right []
     keep (row :: rest) = do
       value <- rowValue columns name row
       later <- keep rest
       pure (if sqlEquals value wanted then row :: later else later)
 
-projectNames : List Column -> Projection -> List String
+projectNames : List Column → Projection → List String
 projectNames columns AllColumns = columnNames columns
 projectNames _ (NamedColumns names) = names
 
-projectRow : List Column -> Projection -> Row -> Either String (List SqlValue)
+projectRow : List Column → Projection → Row → Either String (List SqlValue)
 projectRow _ AllColumns row = Right row.values
 projectRow columns (NamedColumns names) row = choose names
   where
-    choose : List String -> Either String (List SqlValue)
+    choose : List String → Either String (List SqlValue)
     choose [] = Right []
     choose (name :: rest) = do
       value <- rowValue columns name row
       later <- choose rest
       pure (value :: later)
 
-projectRows : List Column -> Projection -> List Row -> Either String (List (List SqlValue))
+projectRows : List Column → Projection → List Row → Either String (List (List SqlValue))
 projectRows _ _ [] = Right []
 projectRows columns projection (row :: rest) = do
   here <- projectRow columns projection row
@@ -107,7 +107,7 @@ projectRows columns projection (row :: rest) = do
   pure (here :: later)
 
 public export
-queryStatement : Statement -> SQLiteFile -> Either String ResultSet
+queryStatement : Statement → SQLiteFile → Either String ResultSet
 queryStatement (CreateTable _ _) _ = Left "read-only SQLite cannot execute CREATE TABLE"
 queryStatement (InsertValues _ _) _ = Left "read-only SQLite cannot execute INSERT"
 queryStatement (SelectRows projection tableName predicate) database = do
@@ -123,14 +123,14 @@ queryStatement (SelectRows projection tableName predicate) database = do
   pure (MkResultSet (projectNames columns projection) projected)
 
 public export
-query : String -> SQLiteFile -> Either String ResultSet
+query : String → SQLiteFile → Either String ResultSet
 query sql database = do
   tokens <- tokenize sql
   statement <- parse tokens
   queryStatement statement database
 
 public export
-queryFile : String -> String -> IO (Either String ResultSet)
+queryFile : String → String → IO (Either String ResultSet)
 queryFile path sql = do
   loaded <- loadSQLiteFile path
   pure (loaded >>= query sql)

@@ -53,22 +53,22 @@ Show PageHeader where
       ++ ", " ++ show header.cellCount ++ " cells"
       ++ ", content starts at " ++ show header.cellContentStart
 
-readByte : Nat -> List Integer -> Either String Integer
+readByte : Nat → List Integer → Either String Integer
 readByte offset bytes =
   case at offset bytes of
-    Nothing => Left ("page ends before byte " ++ show offset)
-    Just byte =>
+    Nothing ⇒ Left ("page ends before byte " ++ show offset)
+    Just byte ⇒
       if byte >= 0 && byte <= 255
         then Right byte
         else Left ("page contains a non-byte value at offset " ++ show offset)
 
-readBig16 : Nat -> List Integer -> Either String Integer
+readBig16 : Nat → List Integer → Either String Integer
 readBig16 offset bytes = do
   high <- readByte offset bytes
   low <- readByte (S offset) bytes
   pure (high * 256 + low)
 
-readBig32 : Nat -> List Integer -> Either String Integer
+readBig32 : Nat → List Integer → Either String Integer
 readBig32 offset bytes = do
   first <- readByte offset bytes
   second <- readByte (offset + 1) bytes
@@ -76,20 +76,20 @@ readBig32 offset bytes = do
   fourth <- readByte (offset + 3) bytes
   pure (first * 16777216 + second * 65536 + third * 256 + fourth)
 
-pageKind : Integer -> Either String PageKind
+pageKind : Integer → Either String PageKind
 pageKind 2 = Right IndexInterior
 pageKind 5 = Right TableInterior
 pageKind 10 = Right IndexLeaf
 pageKind 13 = Right TableLeaf
 pageKind other = Left ("unknown SQLite B-tree page type " ++ show other)
 
-isInterior : PageKind -> Bool
+isInterior : PageKind → Bool
 isInterior IndexInterior = True
 isInterior TableInterior = True
 isInterior _ = False
 
 public export
-parseHeader : Nat -> List Integer -> Either String PageHeader
+parseHeader : Nat → List Integer → Either String PageHeader
 parseHeader pageNumber bytes = do
   let offset = if pageNumber == 1 then 100 else 0
   rawKind <- readByte offset bytes

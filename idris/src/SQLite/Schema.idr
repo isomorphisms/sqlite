@@ -51,17 +51,17 @@ Show SchemaEntry where
     show entry.objectType ++ " " ++ show entry.name
       ++ " on page " ++ show entry.rootPage
 
-schemaText : String -> Integer -> SqlValue -> Either String SchemaText
+schemaText : String → Integer → SqlValue → Either String SchemaText
 schemaText _ _ (SqlText text) = Right (Utf8SchemaText text)
 schemaText _ _ (SqlTextBytes bytes) = Right (RawSchemaText bytes)
 schemaText field rowId _ = Left
   ("sqlite_schema row " ++ show rowId ++ " has non-text " ++ field)
 
-schemaEntry : RawTableRecord -> Either String SchemaEntry
+schemaEntry : RawTableRecord → Either String SchemaEntry
 schemaEntry raw = do
   values <- decodeRecord raw.payload
   case values of
-    [objectTypeValue, nameValue, tableNameValue, SqlInteger rootPage, sqlValue] => do
+    [objectTypeValue, nameValue, tableNameValue, SqlInteger rootPage, sqlValue] ⇒ do
        objectType <- schemaText "object type" raw.rowId objectTypeValue
        name <- schemaText "name" raw.rowId nameValue
        tableName <- schemaText "table name" raw.rowId tableNameValue
@@ -69,16 +69,16 @@ schemaEntry raw = do
          then Right ()
          else Left ("sqlite_schema row " ++ show raw.rowId ++ " has a negative root page")
        createSql <- case sqlValue of
-         SqlNull => Right Nothing
-         SqlText sql => Right (Just (Utf8SchemaText sql))
-         SqlTextBytes bytes => Right (Just (RawSchemaText bytes))
-         _ => Left ("sqlite_schema row " ++ show raw.rowId ++ " has non-text SQL")
+         SqlNull ⇒ Right Nothing
+         SqlText sql ⇒ Right (Just (Utf8SchemaText sql))
+         SqlTextBytes bytes ⇒ Right (Just (RawSchemaText bytes))
+         _ ⇒ Left ("sqlite_schema row " ++ show raw.rowId ++ " has non-text SQL")
        pure (MkSchemaEntry objectType name tableName (integerToNat rootPage) createSql)
-    _ => Left
+    _ ⇒ Left
       ("sqlite_schema row " ++ show raw.rowId
         ++ " does not have its required five fields")
 
-decodeEntries : List RawTableRecord -> Either String (List SchemaEntry)
+decodeEntries : List RawTableRecord → Either String (List SchemaEntry)
 decodeEntries [] = Right []
 decodeEntries (raw :: rest) = do
   entry <- schemaEntry raw
@@ -86,43 +86,43 @@ decodeEntries (raw :: rest) = do
   pure (entry :: later)
 
 public export
-readSchema : SQLiteFile -> Either String (List SchemaEntry)
+readSchema : SQLiteFile → Either String (List SchemaEntry)
 readSchema database = do
   records <- readTableBTree database 1
   decodeEntries records
 
 public export
-findTableSchema : String -> List SchemaEntry -> Either String SchemaEntry
+findTableSchema : String → List SchemaEntry → Either String SchemaEntry
 findTableSchema wanted [] = Left ("no such table: " ++ wanted)
 findTableSchema wanted (entry :: rest) =
   case (entry.objectType, entry.name) of
-    (Utf8SchemaText objectType, Utf8SchemaText name) =>
+    (Utf8SchemaText objectType, Utf8SchemaText name) ⇒
       if sameName objectType "table" && sameName name wanted
         then
           if entry.rootPage > 0
             then Right entry
             else Left ("table " ++ wanted ++ " has no B-tree root page")
         else findTableSchema wanted rest
-    _ => findTableSchema wanted rest
+    _ ⇒ findTableSchema wanted rest
 
 public export
-schemaColumns : SchemaEntry -> Either String (List Column)
+schemaColumns : SchemaEntry → Either String (List Column)
 schemaColumns entry =
   case (entry.name, entry.createSql) of
-    (RawSchemaText _, _) =>
+    (RawSchemaText _, _) ⇒
       Left "table name in sqlite_schema is not valid UTF-8"
-    (Utf8SchemaText name, Nothing) =>
+    (Utf8SchemaText name, Nothing) ⇒
       Left ("table " ++ name ++ " has no CREATE statement")
-    (Utf8SchemaText name, Just (RawSchemaText _)) =>
+    (Utf8SchemaText name, Just (RawSchemaText _)) ⇒
       Left ("CREATE statement for " ++ name ++ " is not valid UTF-8")
-    (Utf8SchemaText name, Just (Utf8SchemaText sql)) => do
+    (Utf8SchemaText name, Just (Utf8SchemaText sql)) ⇒ do
       tokens <- tokenize sql
       statement <- parse tokens
       case statement of
-        CreateTable parsedName columns =>
+        CreateTable parsedName columns ⇒
           if sameName parsedName name
             then Right columns
             else Left
               ("schema SQL names table " ++ parsedName
                 ++ " but sqlite_schema names " ++ name)
-        _ => Left ("schema SQL for " ++ name ++ " is not CREATE TABLE")
+        _ ⇒ Left ("schema SQL for " ++ name ++ " is not CREATE TABLE")

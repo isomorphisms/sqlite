@@ -31,22 +31,22 @@ Show RawTableRecord where
       ++ show (length item.payload) ++ " payload bytes (page "
       ++ show item.leafPage ++ ")"
 
-byteAt : String -> Nat -> List Integer -> Either String Integer
+byteAt : String → Nat → List Integer → Either String Integer
 byteAt context offset bytes =
   case getAt offset bytes of
-    Nothing => Left (context ++ " ends before byte " ++ show offset)
-    Just byte =>
+    Nothing ⇒ Left (context ++ " ends before byte " ++ show offset)
+    Just byte ⇒
       if byte >= 0 && byte <= 255
         then Right byte
         else Left (context ++ " contains a non-byte value")
 
-big16At : String -> Nat -> List Integer -> Either String Integer
+big16At : String → Nat → List Integer → Either String Integer
 big16At context offset bytes = do
   high <- byteAt context offset bytes
   low <- byteAt context (offset + 1) bytes
   pure (high * 256 + low)
 
-big32At : String -> Nat -> List Integer -> Either String Integer
+big32At : String → Nat → List Integer → Either String Integer
 big32At context offset bytes = do
   first <- byteAt context offset bytes
   second <- byteAt context (offset + 1) bytes
@@ -54,14 +54,14 @@ big32At context offset bytes = do
   fourth <- byteAt context (offset + 3) bytes
   pure (first * 16777216 + second * 65536 + third * 256 + fourth)
 
-exactSlice : String -> Nat -> Nat -> List Integer -> Either String (List Integer)
+exactSlice : String → Nat → Nat → List Integer → Either String (List Integer)
 exactSlice context offset amount bytes =
   let answer = take amount (drop offset bytes)
    in if length answer == amount
         then Right answer
         else Left (context ++ " is truncated")
 
-boundedNat : String -> Integer -> Nat -> Either String Nat
+boundedNat : String → Integer → Nat → Either String Nat
 boundedNat label value upper =
   if value < 0
     then Left (label ++ " is negative")
@@ -69,22 +69,22 @@ boundedNat label value upper =
       then Left (label ++ " exceeds its safe parser bound")
       else Right (integerToNat value)
 
-signed64 : Integer -> Integer
+signed64 : Integer → Integer
 signed64 unsigned =
   if unsigned >= 9223372036854775808
     then unsigned - 18446744073709551616
     else unsigned
 
-varintAt : String -> Nat -> Nat -> List Integer -> Either String DecodedVarint
+varintAt : String → Nat → Nat → List Integer → Either String DecodedVarint
 varintAt context limit offset bytes =
   if offset >= limit
     then Left (context ++ " starts outside usable page bytes")
     else
       case decode (take (minus limit offset) (drop offset bytes)) of
-        Left error => Left (context ++ ": " ++ error)
-        Right decoded => Right decoded
+        Left error ⇒ Left (context ++ ": " ++ error)
+        Right decoded ⇒ Right decoded
 
-validPageNumber : DatabaseHeader -> String -> Integer -> Either String Nat
+validPageNumber : DatabaseHeader → String → Integer → Either String Nat
 validPageNumber header label number =
   if number <= 0 || number > natToInteger header.pageCount
     then Left
@@ -92,21 +92,21 @@ validPageNumber header label number =
         ++ show header.pageCount)
     else Right (integerToNat number)
 
-headerOffset : Nat -> Nat
+headerOffset : Nat → Nat
 headerOffset 1 = 100
 headerOffset _ = 0
 
-headerLength : PageKind -> Nat
+headerLength : PageKind → Nat
 headerLength IndexInterior = 12
 headerLength TableInterior = 12
 headerLength IndexLeaf = 8
 headerLength TableLeaf = 8
 
-distinct : Eq item => List item -> Bool
+distinct : Eq item ⇒ List item → Bool
 distinct [] = True
 distinct (item :: rest) = not (elem item rest) && distinct rest
 
-cellPointers : SQLiteFile -> Nat -> PageHeader -> List Integer -> Either String (List Nat)
+cellPointers : SQLiteFile → Nat → PageHeader → List Integer → Either String (List Nat)
 cellPointers database pageNumber header page = do
   count <- boundedNat "B-tree cell count" header.cellCount database.header.usableSize
   let pointerStart = headerOffset pageNumber + headerLength header.kind
@@ -122,7 +122,7 @@ cellPointers database pageNumber header page = do
     then Right pointers
     else Left ("duplicate cell pointer on page " ++ show pageNumber)
   where
-    readPointers : Nat -> Nat -> Either String (List Nat)
+    readPointers : Nat → Nat → Either String (List Nat)
     readPointers Z _ = Right []
     readPointers (S remaining) offset = do
       raw <- big16At ("cell pointer array on page " ++ show pageNumber) offset page
@@ -134,7 +134,7 @@ cellPointers database pageNumber header page = do
       later <- readPointers remaining (offset + 2)
       pure (pointer :: later)
 
-localPayloadBytes : Nat -> Integer -> Either String Nat
+localPayloadBytes : Nat → Integer → Either String Nat
 localPayloadBytes usable payloadSize =
   let u = natToInteger usable
       maximumLocal = u - 35
@@ -148,7 +148,7 @@ localPayloadBytes usable payloadSize =
         then Right (integerToNat local)
         else Left "invalid calculated local payload size"
 
-readOverflow : SQLiteFile -> Nat -> List Nat -> Nat -> Nat ->
+readOverflow : SQLiteFile → Nat → List Nat → Nat → Nat →
                Either String (List Nat, List Integer)
 readOverflow database Z seen _ _ = Left "overflow chain exceeds database page count"
 readOverflow database (S fuel) seen pageNumber remaining = do
@@ -174,7 +174,7 @@ readOverflow database (S fuel) seen pageNumber remaining = do
       (laterSeen, later) <- readOverflow database fuel nowSeen next (minus remaining capacity)
       pure (laterSeen, chunk ++ later)
 
-readLeafCell : SQLiteFile -> Nat -> List Integer -> List Nat -> Nat ->
+readLeafCell : SQLiteFile → Nat → List Integer → List Nat → Nat →
                Either String (List Nat, RawTableRecord)
 readLeafCell database pageNumber page seen cellOffset = do
   let usable = database.header.usableSize
@@ -203,7 +203,7 @@ readLeafCell database pageNumber page seen cellOffset = do
       pure (nowSeen, MkRawTableRecord pageNumber (signed64 rowVarint.value)
                                              (local ++ overflow))
 
-readLeafCells : SQLiteFile -> Nat -> List Integer -> List Nat -> List Nat ->
+readLeafCells : SQLiteFile → Nat → List Integer → List Nat → List Nat →
                 Either String (List Nat, List RawTableRecord)
 readLeafCells database pageNumber page seen [] = Right (seen, [])
 readLeafCells database pageNumber page seen (pointer :: rest) = do
@@ -211,7 +211,7 @@ readLeafCells database pageNumber page seen (pointer :: rest) = do
   (finalSeen, later) <- readLeafCells database pageNumber page nowSeen rest
   pure (finalSeen, item :: later)
 
-interiorChildren : SQLiteFile -> Nat -> PageHeader -> List Integer -> List Nat ->
+interiorChildren : SQLiteFile → Nat → PageHeader → List Integer → List Nat →
                    Either String (List (Nat, Maybe Integer))
 interiorChildren database pageNumber header page pointers = do
   keyed <- readCells pointers
@@ -221,12 +221,12 @@ interiorChildren database pageNumber header page pointers = do
                 ++ show pageNumber)
   rightRaw <-
     case header.rightmostChild of
-      Nothing => Left ("table-interior page " ++ show pageNumber ++ " has no right child")
-      Just child => Right child
+      Nothing ⇒ Left ("table-interior page " ++ show pageNumber ++ " has no right child")
+      Just child ⇒ Right child
   right <- validPageNumber database.header "rightmost child" rightRaw
-  pure (map (\(child, key) => (child, Just key)) keyed ++ [(right, Nothing)])
+  pure (map (\(child, key) ⇒ (child, Just key)) keyed ++ [(right, Nothing)])
   where
-    readCell : Nat -> Either String (Nat, Integer)
+    readCell : Nat → Either String (Nat, Integer)
     readCell pointer = do
       if pointer + 4 < database.header.usableSize
         then Right ()
@@ -236,52 +236,52 @@ interiorChildren database pageNumber header page pointers = do
       key <- varintAt "table-interior key" database.header.usableSize (pointer + 4) page
       pure (child, signed64 key.value)
 
-    readCells : List Nat -> Either String (List (Nat, Integer))
+    readCells : List Nat → Either String (List (Nat, Integer))
     readCells [] = Right []
     readCells (pointer :: rest) = do
       cell <- readCell pointer
       later <- readCells rest
       pure (cell :: later)
 
-    strictlyIncreasing : List Integer -> Bool
+    strictlyIncreasing : List Integer → Bool
     strictlyIncreasing [] = True
     strictlyIncreasing [_] = True
     strictlyIncreasing (left :: right :: rest) =
       left < right && strictlyIncreasing (right :: rest)
 
 mutual
-  walkChildren : SQLiteFile -> Nat -> List Nat -> Maybe Integer ->
-                 List (Nat, Maybe Integer) ->
+  walkChildren : SQLiteFile → Nat → List Nat → Maybe Integer →
+                 List (Nat, Maybe Integer) →
                  Either String (List Nat, List RawTableRecord)
   walkChildren database fuel seen _ [] = Right (seen, [])
   walkChildren database fuel seen lowerBound ((child, upperBound) :: rest) = do
     (nowSeen, here) <- walkTable database fuel seen child
     (first, last) <- case (here, reverse here) of
-      (first :: _, last :: _) => Right (first, last)
-      _ => Left ("table B-tree child page " ++ show child ++ " contains no rows")
+      (first :: _, last :: _) ⇒ Right (first, last)
+      _ ⇒ Left ("table B-tree child page " ++ show child ++ " contains no rows")
     case lowerBound of
-      Nothing => Right ()
-      Just lower =>
+      Nothing ⇒ Right ()
+      Just lower ⇒
         if first.rowId > lower
           then Right ()
           else Left
             ("child page " ++ show child ++ " begins at rowid " ++ show first.rowId
               ++ " but must be greater than separator " ++ show lower)
     case upperBound of
-      Nothing => Right ()
-      Just upper =>
+      Nothing ⇒ Right ()
+      Just upper ⇒
         if last.rowId <= upper
           then Right ()
           else Left
             ("child page " ++ show child ++ " ends at rowid " ++ show last.rowId
               ++ " above separator " ++ show upper)
     let nextLower = case upperBound of
-          Nothing => lowerBound
-          Just upper => Just upper
+          Nothing ⇒ lowerBound
+          Just upper ⇒ Just upper
     (finalSeen, later) <- walkChildren database fuel nowSeen nextLower rest
     pure (finalSeen, here ++ later)
 
-  walkTable : SQLiteFile -> Nat -> List Nat -> Nat ->
+  walkTable : SQLiteFile → Nat → List Nat → Nat →
               Either String (List Nat, List RawTableRecord)
   walkTable database Z seen pageNumber =
     Left "table B-tree depth exceeds database page count"
@@ -294,15 +294,15 @@ mutual
     pointers <- cellPointers database pageNumber header page
     let nowSeen = pageNumber :: seen
     case header.kind of
-      TableLeaf => readLeafCells database pageNumber page nowSeen pointers
-      TableInterior => do
+      TableLeaf ⇒ readLeafCells database pageNumber page nowSeen pointers
+      TableInterior ⇒ do
         children <- interiorChildren database pageNumber header page pointers
         walkChildren database fuel nowSeen Nothing children
-      other => Left
+      other ⇒ Left
         ("expected a table B-tree at page " ++ show pageNumber
           ++ " but found " ++ show other)
 
-orderedRows : List RawTableRecord -> Bool
+orderedRows : List RawTableRecord → Bool
 orderedRows [] = True
 orderedRows [_] = True
 orderedRows (left :: right :: rest) =
@@ -313,7 +313,7 @@ orderedRows (left :: right :: rest) =
 ||| visited only once, which turns cycles and shared-page corruption into an
 ||| error rather than nontermination.
 public export
-readTableBTree : SQLiteFile -> Nat -> Either String (List RawTableRecord)
+readTableBTree : SQLiteFile → Nat → Either String (List RawTableRecord)
 readTableBTree database rootPage = do
   if rootPage > 0 && rootPage <= database.header.pageCount
     then Right ()
@@ -325,6 +325,6 @@ readTableBTree database rootPage = do
 
 ||| Convenience view when the caller needs only `(rowid, raw payload)` pairs.
 public export
-readTablePayloads : SQLiteFile -> Nat -> Either String (List (Integer, List Integer))
+readTablePayloads : SQLiteFile → Nat → Either String (List (Integer, List Integer))
 readTablePayloads database rootPage =
-  map (\item => (item.rowId, item.payload)) <$> readTableBTree database rootPage
+  map (\item ⇒ (item.rowId, item.payload)) <$> readTableBTree database rootPage

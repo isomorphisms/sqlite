@@ -16,47 +16,47 @@ data DatabaseHeader = MkDatabaseHeader
   Nat Nat Nat Nat Nat Nat Integer Integer Integer Integer Integer
 
 public export
-(.pageSize) : DatabaseHeader -> Nat
+(.pageSize) : DatabaseHeader → Nat
 (.pageSize) (MkDatabaseHeader value _ _ _ _ _ _ _ _ _ _) = value
 
 public export
-(.reservedBytes) : DatabaseHeader -> Nat
+(.reservedBytes) : DatabaseHeader → Nat
 (.reservedBytes) (MkDatabaseHeader _ value _ _ _ _ _ _ _ _ _) = value
 
 public export
-(.usableSize) : DatabaseHeader -> Nat
+(.usableSize) : DatabaseHeader → Nat
 (.usableSize) (MkDatabaseHeader _ _ value _ _ _ _ _ _ _ _) = value
 
 public export
-(.pageCount) : DatabaseHeader -> Nat
+(.pageCount) : DatabaseHeader → Nat
 (.pageCount) (MkDatabaseHeader _ _ _ value _ _ _ _ _ _ _) = value
 
 public export
-(.filePageCount) : DatabaseHeader -> Nat
+(.filePageCount) : DatabaseHeader → Nat
 (.filePageCount) (MkDatabaseHeader _ _ _ _ value _ _ _ _ _ _) = value
 
 public export
-(.headerPageCount) : DatabaseHeader -> Nat
+(.headerPageCount) : DatabaseHeader → Nat
 (.headerPageCount) (MkDatabaseHeader _ _ _ _ _ value _ _ _ _ _) = value
 
 public export
-(.writeVersion) : DatabaseHeader -> Integer
+(.writeVersion) : DatabaseHeader → Integer
 (.writeVersion) (MkDatabaseHeader _ _ _ _ _ _ value _ _ _ _) = value
 
 public export
-(.readVersion) : DatabaseHeader -> Integer
+(.readVersion) : DatabaseHeader → Integer
 (.readVersion) (MkDatabaseHeader _ _ _ _ _ _ _ value _ _ _) = value
 
 public export
-(.schemaFormat) : DatabaseHeader -> Integer
+(.schemaFormat) : DatabaseHeader → Integer
 (.schemaFormat) (MkDatabaseHeader _ _ _ _ _ _ _ _ value _ _) = value
 
 public export
-(.changeCounter) : DatabaseHeader -> Integer
+(.changeCounter) : DatabaseHeader → Integer
 (.changeCounter) (MkDatabaseHeader _ _ _ _ _ _ _ _ _ value _) = value
 
 public export
-(.versionValidFor) : DatabaseHeader -> Integer
+(.versionValidFor) : DatabaseHeader → Integer
 (.versionValidFor) (MkDatabaseHeader _ _ _ _ _ _ _ _ _ _ value) = value
 
 public export
@@ -73,11 +73,11 @@ export
 data SQLiteFile = MkSQLiteFile DatabaseHeader (List Integer)
 
 public export
-(.header) : SQLiteFile -> DatabaseHeader
+(.header) : SQLiteFile → DatabaseHeader
 (.header) (MkSQLiteFile value _) = value
 
 public export
-(.contents) : SQLiteFile -> List Integer
+(.contents) : SQLiteFile → List Integer
 (.contents) (MkSQLiteFile _ value) = value
 
 sqliteMagic : List Integer
@@ -85,25 +85,25 @@ sqliteMagic =
   [83, 81, 76, 105, 116, 101, 32, 102,
    111, 114, 109, 97, 116, 32, 51, 0]
 
-validByte : Integer -> Bool
+validByte : Integer → Bool
 validByte byte = byte >= 0 && byte <= 255
 
-byteAt : Nat -> List Integer -> Either String Integer
+byteAt : Nat → List Integer → Either String Integer
 byteAt offset bytes =
   case getAt offset bytes of
-    Nothing => Left ("database header ends before byte " ++ show offset)
-    Just byte =>
+    Nothing ⇒ Left ("database header ends before byte " ++ show offset)
+    Just byte ⇒
       if validByte byte
         then Right byte
         else Left ("value at byte " ++ show offset ++ " is outside 0..255")
 
-big16At : Nat -> List Integer -> Either String Integer
+big16At : Nat → List Integer → Either String Integer
 big16At offset bytes = do
   high <- byteAt offset bytes
   low <- byteAt (offset + 1) bytes
   pure (high * 256 + low)
 
-big32At : Nat -> List Integer -> Either String Integer
+big32At : Nat → List Integer → Either String Integer
 big32At offset bytes = do
   first <- byteAt offset bytes
   second <- byteAt (offset + 1) bytes
@@ -111,14 +111,14 @@ big32At offset bytes = do
   fourth <- byteAt (offset + 3) bytes
   pure (first * 16777216 + second * 65536 + third * 256 + fourth)
 
-validPageSize : Integer -> Bool
+validPageSize : Integer → Bool
 validPageSize size =
   elem size [512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]
 
-natural : Integer -> Nat
+natural : Integer → Nat
 natural = integerToNat
 
-logicalPageCount : Integer -> Integer -> Integer -> Nat -> Either String Nat
+logicalPageCount : Integer → Integer → Integer → Nat → Either String Nat
 logicalPageCount changed declared validFor physical =
   if changed == validFor && declared > 0
     then
@@ -133,7 +133,7 @@ logicalPageCount changed declared validFor physical =
 ||| deliberately strict about the standard payload fractions and UTF-8 text
 ||| encoding.  The logical page count follows SQLite's change-counter rule.
 public export
-parseSQLiteFile : List Integer -> Either String SQLiteFile
+parseSQLiteFile : List Integer → Either String SQLiteFile
 parseSQLiteFile bytes = do
   if length bytes < 100
     then Left "file is shorter than SQLite's 100-byte database header"
@@ -217,7 +217,7 @@ parseSQLiteFile bytes = do
 
 ||| Return one complete page.  SQLite page numbers are one-based.
 public export
-pageBytes : SQLiteFile -> Nat -> Either String (List Integer)
+pageBytes : SQLiteFile → Nat → Either String (List Integer)
 pageBytes database Z = Left "SQLite page number 0 is invalid"
 pageBytes database (S zeroBased) =
   if S zeroBased > database.header.pageCount
@@ -234,11 +234,11 @@ pageBytes database (S zeroBased) =
 ||| Read a file into an Idris Buffer once, convert it to pure integer bytes,
 ||| and run the same validation as `parseSQLiteFile`.
 public export
-loadSQLiteFile : String -> IO (Either String SQLiteFile)
+loadSQLiteFile : String → IO (Either String SQLiteFile)
 loadSQLiteFile path = do
   result <- createBufferFromFile path
   case result of
-    Left error => pure (Left ("could not read " ++ path ++ ": " ++ show error))
-    Right buffer => do
+    Left error ⇒ pure (Left ("could not read " ++ path ++ ": " ++ show error))
+    Right buffer ⇒ do
       bytes <- bufferData' buffer
       pure (parseSQLiteFile (map cast bytes))
